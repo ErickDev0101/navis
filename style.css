@@ -1,0 +1,18 @@
+body {
+  background: #0a0f1a;
+  color: #00eaff;
+  font-family: Arial;
+  text-align: center;
+}
+
+h1 {
+  font-size: 40px;
+  letter-spacing: 3px;
+}
+
+button {
+  padding: 10px 20px;
+  background: #00eaff;
+  border: none;
+  cursor: pointer;
+}
