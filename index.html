@@ -1,22 +1,92 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-br">
 <head>
-  <title>NAVIS</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <title>NAVIS | Enterprise Asset Intelligence</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <nav class="sidebar">
+        <div class="brand">NAVIS <span class="version">v2.0</span></div>
+        <div class="nav-group">
+            <button onclick="showPage('dash')" class="nav-item">OPERATIONAL DASHBOARD</button>
+            <button onclick="showPage('scan')" class="nav-item">PREDICTIVE SCANNER</button>
+            <button onclick="showPage('maquinas')" class="nav-item">ASSET INVENTORY</button>
+            <button onclick="showPage('relatorios')" class="nav-item">MAINTENANCE LOGS</button>
+        </div>
+    </nav>
 
-<h1>NAVIS</h1>
-<p>Sistema Inteligente Industrial</p>
+    <main class="viewport">
+        <section id="page-dash" class="page">
+            <header class="section-header">
+                <h2>Operational Dashboard</h2>
+                <p>Real-time fleet status and critical alerts.</p>
+            </header>
+            <div class="stats-row">
+                <div class="kpi-card"><span>TOTAL ASSETS</span><strong id="stat-total">0</strong></div>
+                <div class="kpi-card alert"><span>CRITICAL ALERTS</span><strong id="stat-alertas">0</strong></div>
+                <div class="kpi-card efficiency"><span>EST. EFFICIENCY</span><strong>94.2%</strong></div>
+            </div>
+            <div class="graph-area">
+                <canvas id="mainChart"></canvas>
+            </div>
+        </section>
 
-<input type="file" id="imageUpload">
-<button onclick="predict()">Analisar Máquina</button>
+        <section id="page-scan" class="page" style="display:none;">
+            <header class="section-header">
+                <h2>Predictive Analysis</h2>
+                <p>Computer vision for real-time asset classification.</p>
+            </header>
+            <div class="analysis-grid">
+                <div class="input-panel">
+                    <div class="form-group">
+                        <label>ASSET IDENTIFICATION</label>
+                        <input type="text" id="scan-id" placeholder="Ex: PR-2026-X10">
+                    </div>
+                    <div class="upload-wrapper">
+                        <input type="file" id="imageUpload" hidden>
+                        <button onclick="document.getElementById('imageUpload').click()" class="btn-secondary">SELECT SOURCE IMAGE</button>
+                        <button id="predictBtn" class="btn-primary" disabled>INITIALIZING...</button>
+                    </div>
+                    <div class="image-monitor">
+                        <img id="imagePreview" src="" alt="Monitor Feed" style="display:none; max-width: 100%;">
+                    </div>
+                </div>
+                <div class="output-panel">
+                    <div id="ai-response" class="data-card">
+                        <h3>SYSTEM DIAGNOSTIC</h3>
+                        <div id="ai-text" class="placeholder-text">Waiting for telemetry...</div>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-<h2 id="resultado"></h2>
-<p id="info"></p>
+        <section id="page-maquinas" class="page" style="display:none;">
+            <h2>Asset Inventory</h2>
+            <div id="inventory-grid" class="grid-layout"></div>
+        </section>
 
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-<script src="script.js"></script>
+        <section id="page-relatorios" class="page" style="display:none;">
+            <h2>Maintenance Logs</h2>
+            <div class="table-container">
+                <table class="industrial-table">
+                    <thead>
+                        <tr>
+                            <th>TIMESTAMP</th>
+                            <th>ASSET ID</th>
+                            <th>CLASSIFICATION</th>
+                            <th>STATUS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="report-body"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
