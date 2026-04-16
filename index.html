@@ -1,92 +1,87 @@
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
     <meta charset="UTF-8">
-    <title>NAVIS | Enterprise Asset Intelligence</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NAVIS | Intelligence</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 </head>
-<body>
-    <nav class="sidebar">
-        <div class="brand">NAVIS <span class="version">v2.0</span></div>
-        <div class="nav-group">
-            <button onclick="showPage('dash')" class="nav-item">OPERATIONAL DASHBOARD</button>
-            <button onclick="showPage('scan')" class="nav-item">PREDICTIVE SCANNER</button>
-            <button onclick="showPage('maquinas')" class="nav-item">ASSET INVENTORY</button>
-            <button onclick="showPage('relatorios')" class="nav-item">MAINTENANCE LOGS</button>
+
+<body onload="init()">
+    <header class="topbar">
+        <div class="brand-area"><span class="brand-name">NAVIS</span></div>
+        <div class="user-info">
+            <span>Eng. Thiago Erick</span>
+            <div class="user-avatar">T</div>
         </div>
+    </header>
+
+    <nav class="sidebar">
+        <button onclick="showPage('scan')" id="btn-scan" class="nav-item active">SCANNER DE ATIVOS</button>
+        <button onclick="showPage('maquinas')" id="btn-maquinas" class="nav-item">INVENTÁRIO</button>
+        <button onclick="showPage('relatorios')" id="btn-relatorios" class="nav-item">RELATÓRIOS</button>
     </nav>
 
-    <main class="viewport">
-        <section id="page-dash" class="page">
-            <header class="section-header">
-                <h2>Operational Dashboard</h2>
-                <p>Real-time fleet status and critical alerts.</p>
-            </header>
-            <div class="stats-row">
-                <div class="kpi-card"><span>TOTAL ASSETS</span><strong id="stat-total">0</strong></div>
-                <div class="kpi-card alert"><span>CRITICAL ALERTS</span><strong id="stat-alertas">0</strong></div>
-                <div class="kpi-card efficiency"><span>EST. EFFICIENCY</span><strong>94.2%</strong></div>
-            </div>
-            <div class="graph-area">
-                <canvas id="mainChart"></canvas>
-            </div>
-        </section>
+    <main class="main-content">
+        <section id="page-scan" class="page-grid">
+            <aside class="panel">
+                <header class="panel-header">Status de Operação</header>
+                <div class="data-row"><span>Conexão:</span> <strong>ATIVA</strong></div>
+                <div class="data-row"><span>IA Core:</span> <strong>CNN-TFJS</strong></div>
+            </aside>
 
-        <section id="page-scan" class="page" style="display:none;">
-            <header class="section-header">
-                <h2>Predictive Analysis</h2>
-                <p>Computer vision for real-time asset classification.</p>
-            </header>
-            <div class="analysis-grid">
-                <div class="input-panel">
-                    <div class="form-group">
-                        <label>ASSET IDENTIFICATION</label>
-                        <input type="text" id="scan-id" placeholder="Ex: PR-2026-X10">
-                    </div>
-                    <div class="upload-wrapper">
-                        <input type="file" id="imageUpload" hidden>
-                        <button onclick="document.getElementById('imageUpload').click()" class="btn-secondary">SELECT SOURCE IMAGE</button>
-                        <button id="predictBtn" class="btn-primary" disabled>INITIALIZING...</button>
-                    </div>
-                    <div class="image-monitor">
-                        <img id="imagePreview" src="" alt="Monitor Feed" style="display:none; max-width: 100%;">
-                    </div>
+            <article class="panel monitor-panel">
+                <div class="input-area">
+                    <input type="file" id="imageUpload" accept="image/*" hidden>
+                    <button onclick="document.getElementById('imageUpload').click()" class="btn-select">VISÃO</button>
+                    <button id="predictBtn" disabled class="btn-primary" style="margin-left:10px">SCANNER</button>
                 </div>
-                <div class="output-panel">
-                    <div id="ai-response" class="data-card">
-                        <h3>SYSTEM DIAGNOSTIC</h3>
-                        <div id="ai-text" class="placeholder-text">Waiting for telemetry...</div>
-                    </div>
+                <div class="image-viewport">
+                    <img id="imagePreview" src="" alt="Feed" style="display: none; max-width: 100%; max-height: 100%;">
                 </div>
-            </div>
+            </article>
+
+            <aside class="panel">
+                <header class="panel-header">Diagnóstico</header>
+                <div class="confidence-box"><span>Precisão:</span> <strong id="ai-confidence-percent">0%</strong></div>
+                <div id="ai-diagnostics" class="diagnostics-list">
+                    <p>Aguardando...</p>
+                </div>
+            </aside>
         </section>
 
-        <section id="page-maquinas" class="page" style="display:none;">
-            <h2>Asset Inventory</h2>
-            <div id="inventory-grid" class="grid-layout"></div>
-        </section>
-
-        <section id="page-relatorios" class="page" style="display:none;">
-            <h2>Maintenance Logs</h2>
-            <div class="table-container">
-                <table class="industrial-table">
+        <section id="page-maquinas" style="display:none;">
+            <header class="panel-header">Ativos Registrados no Sistema</header>
+            <div class="panel">
+                <table style="width:100%; color: #c9d1d9; border-collapse: collapse;">
                     <thead>
-                        <tr>
-                            <th>TIMESTAMP</th>
-                            <th>ASSET ID</th>
-                            <th>CLASSIFICATION</th>
-                            <th>STATUS</th>
+                        <tr style="color:#ffc107; border-bottom: 1px solid #333">
+                            <th align="left" style="padding:10px">NOME DO ATIVO</th>
+                            <th align="left">CATEGORIA</th>
+                            <th align="left">DATA DE REGISTRO</th>
                         </tr>
                     </thead>
-                    <tbody id="report-body"></tbody>
+                    <tbody id="lista-inventario"></tbody>
                 </table>
+                <button onclick="limparInventario()" class="btn-primary"
+                    style="margin-top:20px; background:#dc3545">LIMPAR TUDO</button>
+            </div>
+        </section>
+
+        <section id="page-relatorios" style="display:none;">
+            <header class="panel-header">Central de Documentação</header>
+            <div class="panel" style="text-align: center; padding: 40px;">
+                <p>Os memoriais descritivos são gerados em formato PDF.</p>
+                <p style="color:#888">Verifique sua pasta de downloads após clicar em 'SALVAR E GERAR'.</p>
             </div>
         </section>
     </main>
-
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
     <script src="script.js"></script>
 </body>
+
 </html>

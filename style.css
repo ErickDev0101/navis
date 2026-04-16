@@ -1,108 +1,166 @@
 :root {
-  --bg: #0f172a;
-  --sidebar: #1e293b;
-  --accent: #3b82f6;
-  --text: #f8fafc;
+  --bg: #0d1117;
+  --panel: #161b22;
+  --border: #30363d;
+  --primary: #facc15;
+  --text: #c9d1d9;
+  --blue: #0ea5e9;
+  --green: #238636;
 }
 
 body {
-  margin: 0;
-  display: flex;
-  font-family: sans-serif;
   background: var(--bg);
   color: var(--text);
+  font-family: 'Segoe UI', sans-serif;
+  margin: 0;
+  overflow-x: hidden;
+}
+
+.topbar {
+  height: 60px;
+  background: #000;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.main-logo {
+  height: 25px;
+}
+
+.brand-name {
+  font-weight: bold;
+  color: var(--primary);
+  margin-left: 10px;
+  font-size: 1.2rem;
 }
 
 .sidebar {
-  width: 250px;
-  background: var(--sidebar);
+  position: fixed;
+  width: 240px;
   height: 100vh;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  background: #000;
+  border-right: 1px solid var(--border);
 }
 
-.nav-btn {
+.nav-item {
+  width: 100%;
+  padding: 20px;
   background: none;
   border: none;
-  color: #94a3b8;
+  color: #8b949e;
   text-align: left;
-  padding: 12px;
   cursor: pointer;
-  border-radius: 8px;
+  transition: 0.3s;
 }
 
-.nav-btn:hover {
-  background: #334155;
-  color: white;
+.nav-item.active {
+  color: var(--primary);
+  border-left: 4px solid var(--primary);
+  background: var(--panel);
 }
 
-.content {
-  flex: 1;
+.main-content {
+  margin-left: 240px;
   padding: 30px;
-  overflow-y: auto;
 }
 
-.stats-grid {
+.page-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 260px 1fr 320px;
   gap: 20px;
 }
 
-.stat-card {
-  background: var(--sidebar);
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
   padding: 20px;
-  border-radius: 12px;
-}
-
-.scan-wrapper {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-}
-
-.ai-box {
-  background: #1e293b;
-  padding: 20px;
-  border-radius: 12px;
-  border: 1px solid var(--accent);
-}
-
-.risk-alert {
-  background: #450a0a;
-  color: #f87171;
-  padding: 15px;
   border-radius: 8px;
-  border-left: 5px solid red;
-  margin-top: 10px;
-  font-weight: bold;
+  position: relative;
 }
 
-.import-section {
-  background: #1e293b;
-  padding: 20px;
-  border-radius: 12px;
-  margin-bottom: 20px;
+.panel-header {
+  font-size: 0.8rem;
+  color: #8b949e;
+  margin-bottom: 15px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
-.import-form input,
-select {
-  padding: 10px;
-  margin-right: 10px;
-  border-radius: 5px;
+.image-viewport {
+  height: 400px;
+  background: #050505;
+  border: 2px solid #222;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 15px;
+  border-radius: 4px;
+}
+
+#imagePreview {
+  max-width: 100%;
+  max-height: 100%;
+  display: none;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #000;
   border: none;
-}
-
-.industrial-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 20px;
-}
-
-.industrial-table th,
-td {
   padding: 12px;
-  text-align: left;
-  border-bottom: 1px solid #334155;
+  font-weight: bold;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.btn-primary:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.btn-select {
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  padding: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.data-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+
+.confidence-box {
+  background: #000;
+  padding: 15px;
+  border-radius: 4px;
+  text-align: center;
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+}
+
+label {
+  display: block;
+  font-size: 0.7rem;
+  color: #8b949e;
+  margin-top: 15px;
+  margin-bottom: 5px;
+}
+
+select {
+  width: 100%;
+  padding: 10px;
+  background: #000;
+  color: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
 }

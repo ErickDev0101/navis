@@ -1,100 +1,113 @@
 const URL_MODEL = "./model/";
 let model;
 
-// O dicionário agora está mapeado para as suas labels reais
-const maquinaDicionario = {
-    "maquina 1": {
-        titulo: "SISTEMA INDUSTRIAL - MAQUINA 1",
-        desc: "Equipamento de processamento detectado via telemetria visual.",
-        recomendacao: "Manutenção preventiva padrão: Verificar lubrificação dos eixos."
-    },
-    "maquina 2": {
-        titulo: "SISTEMA INDUSTRIAL - MAQUINA 2",
-        desc: "Módulo de automação detectado. Operação em regime nominal.",
-        recomendacao: "Protocolo: Realizar limpeza técnica dos sensores ópticos."
-    }
-};
-
-function showPage(id) {
-    document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
-    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-    const target = document.getElementById('page-' + id);
-    if (target) target.style.display = 'block';
-}
-
 async function init() {
-    const aiText = document.getElementById('ai-text');
-    const btn = document.getElementById('predictBtn');
-
     try {
         model = await tmImage.load(URL_MODEL + "model.json", URL_MODEL + "metadata.json");
-        const labels = model.getClassLabels();
-
-        btn.disabled = false;
-        btn.innerText = "RUN DIAGNOSTIC";
-        aiText.innerText = "SISTEMA ONLINE. Pronto para analisar: " + labels.join(", ");
-    } catch (e) {
-        aiText.innerHTML = "<b style='color:red'>ERRO: Falha ao carregar modelo em /model/</b>";
-    }
+        document.getElementById('predictBtn').disabled = false;
+        carregarInventario();
+    } catch (e) { console.error("Erro IA."); }
 }
 
-async function predict() {
-    const img = document.getElementById('imagePreview');
-    const aiText = document.getElementById('ai-text');
-
-    if (!img.src || img.src === "" || img.src === window.location.href) {
-        alert("Carregue uma imagem primeiro.");
-        return;
-    }
-
-    try {
-        const prediction = await model.predict(img);
-        let bestMatch = "";
-        let highestProb = 0;
-
-        prediction.forEach(p => {
-            if (p.probability > highestProb) {
-                highestProb = p.probability;
-                bestMatch = p.className.toLowerCase().trim(); // Converte "MAQUINA 1" para "maquina 1"
-            }
-        });
-
-        // Busca no dicionário usando o nome convertido
-        const info = maquinaDicionario[bestMatch] || {
-            titulo: `ATIVO NÃO IDENTIFICADO: [${bestMatch}]`,
-            desc: `A IA reconheceu como "${bestMatch}", mas este nome precisa estar no dicionário.`,
-            recomendacao: "Verifique a ortografia no objeto maquinaDicionario."
-        };
-
-        aiText.innerHTML = `
-            <div class="result-header">
-                <h4>${info.titulo}</h4>
-                <span class="confidence">${(highestProb * 100).toFixed(2)}% CONFIDENCE</span>
-            </div>
-            <div class="result-body">
-                <p><strong>Notas de Inspeção:</strong> ${info.desc}</p>
-                <div class="action-item"><strong>Protocolo:</strong> ${info.recomendacao}</div>
-            </div>
-        `;
-    } catch (err) {
-        aiText.innerText = "Erro no processamento visual.";
-    }
-}
-
-// Handlers de interface
-document.getElementById('imageUpload').addEventListener('change', function (e) {
+document.getElementById('imageUpload').onchange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = function (ev) {
-        const img = document.getElementById('imagePreview');
-        img.src = ev.target.result;
-        img.style.display = 'block';
-        document.getElementById('ai-text').innerText = "Imagem carregada. Clique em RUN DIAGNOSTIC.";
-    }
+    reader.onload = (ev) => {
+        const preview = document.getElementById('imagePreview');
+        preview.src = ev.target.result;
+        preview.style.display = 'block';
+    };
     reader.readAsDataURL(file);
-});
+};
 
-document.getElementById('predictBtn').addEventListener('click', predict);
+async function predict() {
+    const img = document.getElementById('imagePreview');
+    if (!img.src || img.src === "") return;
+    const prediction = await model.predict(img);
+    let topClass = ""; let topProb = 0;
+    prediction.forEach(p => { if (p.probability > topProb) { topProb = p.probability; topClass = p.className.toUpperCase().trim(); } });
 
-init();
+    document.getElementById('ai-confidence-percent').innerText = (topProb * 100).toFixed(0) + "%";
+    const isNew = topClass.includes("NEW") || topClass.includes("MAQUINA 2");
+
+    document.getElementById('ai-diagnostics').innerHTML = `
+        <div class="panel" style="border-left: 4px solid ${isNew ? '#0ea5e9' : '#ffc107'}">
+            <h3 style="color:${isNew ? '#0ea5e9' : '#ffc107'}">${isNew ? 'Máquina NEW' : 'LEGACY DETECTADO'}</h3>
+            <p>Ativo: <strong>${topClass}</strong></p>
+            <button class="btn-primary" style="width:100%; margin-top:10px" onclick="processarAtivo('${topClass}', '${isNew ? 'NEW' : 'LEGACY'}')">SALVAR E GERAR PDF</button>
+        </div>`;
+}
+
+function processarAtivo(nome, tipo) {
+    const dataR = new Date().toLocaleString('pt-BR');
+    const maquina = { nome, tipo, data: dataR };
+    let inv = JSON.parse(localStorage.getItem('navis_inv')) || [];
+    inv.push(maquina);
+    localStorage.setItem('navis_inv', JSON.stringify(inv));
+
+    carregarInventario();
+    gerarPDFCompleto(nome, tipo, dataR);
+}
+
+function carregarInventario() {
+    const lista = document.getElementById('lista-inventario');
+    const inv = JSON.parse(localStorage.getItem('navis_inv')) || [];
+    lista.innerHTML = inv.map(i => `
+        <tr style="border-bottom: 1px solid #222">
+            <td style="padding:12px">${i.nome}</td>
+            <td>${i.tipo === 'NEW' ? 'new' : 'Analógica'}</td>
+            <td>${i.data}</td>
+        </tr>`).join('');
+}
+
+function gerarPDFCompleto(nome, tipo, data) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    // Estilo do Relatório
+    doc.setFillColor(33, 37, 41); doc.rect(0, 0, 210, 45, 'F');
+    doc.setTextColor(255, 193, 7); doc.setFontSize(26); doc.text("NAVIS", 15, 25);
+    doc.setTextColor(255, 255, 255); doc.setFontSize(10);
+    doc.text("RELATÓRIO TÉCNICO DE ENGENHARIA", 15, 35);
+    doc.text(`RESPONSÁVEL: Eng. Thiago Erick`, 130, 20);
+    doc.text(`DATA: ${data}`, 130, 26);
+
+    doc.setTextColor(0, 0, 0); doc.setFontSize(14); doc.setFont("helvetica", "bold");
+    doc.text("1. IDENTIFICAÇÃO DO ATIVO", 15, 60);
+    doc.line(15, 62, 195, 62);
+    doc.setFontSize(11); doc.setFont("helvetica", "normal");
+    doc.text(`NOME: ${nome}`, 20, 70);
+    doc.text(`CATEGORIA: ${tipo === 'NEW' ? 'Digital 4.0' : 'Unidade Analógica'}`, 20, 78);
+
+    doc.setFont("helvetica", "bold"); doc.text("2. ESPECIFICAÇÕES TÉCNICAS E INSTALAÇÃO", 15, 95);
+    doc.line(15, 97, 195, 97);
+    doc.setFontSize(11); doc.setFont("helvetica", "normal");
+
+    if (tipo === 'LEGACY') {
+        doc.text("INTERFACE SUGERIDA: IOT (Gateway NAVIS)", 20, 105);
+        doc.text("SENSORES PARA MONITORAMENTO:", 20, 113);
+        doc.text("- Transformador de Corrente SCT-013 (Monitoramento de Carga)", 25, 121);
+        doc.text("- Sensor Piezoelétrico (Análise de Vibração Preditiva)", 25, 129);
+        doc.text("NOTA: Fixar Piezoelétrico próximo ao mancal principal.", 20, 140);
+    } else {
+        doc.text("PROTOCOLOS: Modbus TCP / MQTT Nativo", 20, 105);
+        doc.text("CONEXÃO: Interface Ethernet RJ45 (Cabo Blindado)", 20, 113);
+    }
+
+    doc.text("Documento gerado eletronicamente pelo sistema NAVIS.", 15, 280);
+    doc.save(`NAVIS_Relatorio_${nome.replace(/\s/g, '_')}.pdf`);
+}
+
+function limparInventario() {
+    if (confirm("Limpar base de dados?")) { localStorage.removeItem('navis_inv'); carregarInventario(); }
+}
+
+function showPage(id) {
+    document.querySelectorAll('section').forEach(s => s.style.display = 'none');
+    document.getElementById('page-' + id).style.display = (id === 'scan' ? 'grid' : 'block');
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    document.getElementById('btn-' + id).classList.add('active');
+}
+
+document.getElementById('predictBtn').onclick = predict;
