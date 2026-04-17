@@ -1,376 +1,318 @@
-// ================= FIREBASE =================
+// ================= CONFIGURAÇÕES =================
 const firebaseConfig = {
   apiKey: "AIzaSyCR4FZbNlEOHIPfjyRT8yBjdunVjzgsdNM",
   authDomain: "navis-c9fd5.firebaseapp.com",
   projectId: "navis-c9fd5",
 };
 
+const URL_MODEL = "./model/"; 
+
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// ================= VARIÁVEIS =================
-let imagemCapturada;
-let streamAtual;
-let cameraAtiva = false;
-let chart;
+let modelIA = null; 
+let imagemCapturada, streamAtual, cameraAtiva = false, chart;
 
-// ================= INIT =================
-function init() {
+// ================= INICIALIZAÇÃO =================
+async function init() {
   abrirAba("dashboard");
-
-  chart = new Chart(grafico, {
-    type: 'line',
-    data: { labels: [], datasets: [{ label: "Temperatura", data: [] }] }
-  });
-
-  setInterval(simular, 2000);
+  inicializarGrafico();
+  setInterval(simularSensores, 2000);
   carregarMaquinas();
+  
+  try {
+    modelIA = await tmImage.load(URL_MODEL + "model.json", URL_MODEL + "metadata.json");
+  } catch (e) {
+    console.warn("Modelo local não encontrado. Usando modo de simulação.");
+  }
 }
 
-// ================= ABAS =================
+// ================= NAVEGAÇÃO E MÍDIA =================
 function abrirAba(nome) {
   document.querySelectorAll(".aba").forEach(a => a.classList.remove("ativa"));
-  document.getElementById(nome).classList.add("ativa");
+  const aba = document.getElementById(nome);
+  if (aba) aba.classList.add("ativa");
   desligarCamera();
 }
 
-// ================= CAMERA =================
 async function abrirCamera() {
-
-  camera.style.display = "block";
-  btnCapturar.style.display = "inline-block";
-
-  streamAtual = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: "environment" }
-  });
-
-  camera.srcObject = streamAtual;
-  cameraAtiva = true;
+  const camEl = document.getElementById("camera");
+  const btnCap = document.getElementById("btnCapturar");
+  if (camEl) camEl.style.display = "block";
+  if (btnCap) btnCap.style.display = "inline-block";
+  
+  try {
+    streamAtual = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+    if (camEl) camEl.srcObject = streamAtual;
+    cameraAtiva = true;
+  } catch (err) { alert("Erro ao acessar câmera."); }
 }
 
 function desligarCamera() {
-  if (streamAtual) {
-    streamAtual.getTracks().forEach(t => t.stop());
-    camera.srcObject = null;
-  }
-
-  camera.style.display = "none";
-  btnCapturar.style.display = "none";
+  if (streamAtual) streamAtual.getTracks().forEach(t => t.stop());
+  const camEl = document.getElementById("camera");
+  const btnCap = document.getElementById("btnCapturar");
+  if (camEl) camEl.style.display = "none";
+  if (btnCap) btnCap.style.display = "none";
   cameraAtiva = false;
 }
 
 function capturar() {
-
-  if (!cameraAtiva) return;
-
-  const ctx = canvas.getContext("2d");
-
-  canvas.width = camera.videoWidth;
-  canvas.height = camera.videoHeight;
-
-  ctx.drawImage(camera, 0, 0);
-
-  const data = canvas.toDataURL("image/png");
-
+  const camEl = document.getElementById("camera");
+  const canvasEl = document.getElementById("canvas");
+  const previewEl = document.getElementById("preview");
+  const ctx = canvasEl.getContext("2d");
+  
+  canvasEl.width = camEl.videoWidth;
+  canvasEl.height = camEl.videoHeight;
+  ctx.drawImage(camEl, 0, 0);
+  const data = canvasEl.toDataURL("image/png");
+  
   let img = new Image();
-
   img.onload = () => {
     imagemCapturada = img;
-    preview.src = data;
-    preview.style.display = "block";
+    previewEl.src = data;
+    previewEl.style.display = "block";
   };
-
   img.src = data;
-
   desligarCamera();
 }
 
-// ================= UPLOAD =================
-imageUpload.onchange = e => {
-
+// CORREÇÃO: Listener de Upload para restaurar o Preview
+document.getElementById("imageUpload").onchange = e => {
   const file = e.target.files[0];
   if (!file) return;
-
   const reader = new FileReader();
-
   reader.onload = ev => {
-
     let img = new Image();
-
     img.onload = () => {
       imagemCapturada = img;
-      preview.src = ev.target.result;
-      preview.style.display = "block";
+      const previewEl = document.getElementById("preview");
+      previewEl.src = ev.target.result;
+      previewEl.style.display = "block";
     };
-
     img.src = ev.target.result;
   };
-
   reader.readAsDataURL(file);
 };
 
-// ================= OCR =================
-async function extrairTexto() {
-
-  if (!imagemCapturada) {
-    alert("Nenhuma imagem carregada");
-    return "";
-  }
-
-  const result = await Tesseract.recognize(
-    imagemCapturada,
-    'eng',
-    { logger: m => console.log(m) }
-  );
-
-  return result.data.text.toUpperCase();
-}
-
-// ================= IA =================
+// ================= LÓGICA DE ANÁLISE =================
 async function analisar() {
+  if (!imagemCapturada) return alert("Capture ou envie uma imagem!");
 
-  if (!imagemCapturada) {
-    alert("Envie ou capture uma imagem!");
-    return;
-  }
+  const resBox = document.getElementById("resultado-ia");
+  const acoesBox = document.getElementById("acoes");
+  resBox.innerHTML = "Analisando padrões...";
+  acoesBox.innerHTML = "";
 
-  ia.innerHTML = "Analisando...";
-  acoes.innerHTML = "";
+  try {
+    let tipoSugerido = "LEGACY";
+    let conf = 0;
 
-  let texto = await extrairTexto();
+    if (modelIA) {
+      const prediction = await modelIA.predict(imagemCapturada);
+      const top = prediction.sort((a, b) => b.probability - a.probability)[0];
+      conf = (top.probability * 100).toFixed(1);
+      tipoSugerido = (top.className.toUpperCase() === "MAQUINA 2") ? "NEW" : "LEGACY";
+    }
 
-  let fabricante = "DESCONHECIDO";
+    resBox.innerHTML = `
+      <div class="resultado-header ${tipoSugerido.toLowerCase()}">
+        <h3>Sugestão IA: ${tipoSugerido}</h3>
+        <p>Confiança Visual: ${conf}%</p>
+      </div>`;
 
-  ["SIEMENS","WEG","ABB","BOSCH"].forEach(f=>{
-    if(texto.includes(f)) fabricante = f;
-  });
+    exibirPerguntaConectividade(tipoSugerido);
+  } catch (e) { resBox.innerHTML = "Erro na análise."; }
+}
 
-  let modelo = texto.split("\n").find(l => l.length > 5) || "Não identificado";
+// ================= FLUXO DE DECISÃO CORRIGIDO =================
+function exibirPerguntaConectividade(tipoIA) {
+  const acoesBox = document.getElementById("acoes");
+  acoesBox.innerHTML = `
+    <div class="pergunta-box">
+      <p><b>A máquina possui conectividade com a rede?</b></p>
+      <div class="botoes-fluxo">
+        <button class="btn-sim" onclick="finalizarFluxo(true, '${tipoIA}')">SIM</button>
+        <button class="btn-nao" onclick="finalizarFluxo(false, '${tipoIA}')">NÃO</button>
+      </div>
+    </div>`;
+}
 
-  let tipo = (
-    texto.includes("ETHERNET") ||
-    texto.includes("MODBUS") ||
-    texto.includes("PROFINET")
-  ) ? "NEW" : "LEGACY";
-
-  ia.innerHTML = `
-    <h3>${tipo}</h3>
-    <p><b>${fabricante}</b></p>
-    <p>${modelo}</p>
-  `;
-
-  // ================= FLUXO =================
-  if (tipo === "LEGACY") {
-
-    acoes.innerHTML = `
-      <p>Máquina LEGACY. Deseja retrofit?</p>
-      <button onclick="respostaLegacy(true,'${fabricante}','${modelo}')">SIM</button>
-      <button onclick="respostaLegacy(false)">NÃO</button>
-    `;
-
+async function finalizarFluxo(conectada, tipoIA) {
+  const acoesBox = document.getElementById("acoes");
+  
+  if (conectada) {
+    // Se tem internet: Força como NEW (Validação Humana)
+    await salvarMaquina("NEW", "ATIVO (Tempo Real)");
+    acoesBox.innerHTML = "<div class='sucesso-box'>✅ Máquina NEW salva e conectada!</div>";
   } else {
-
-    acoes.innerHTML = `
-      <p>Máquina NEW. Já possui conectividade?</p>
-      <button onclick="respostaNew(true,'${fabricante}','${modelo}')">SIM</button>
-      <button onclick="respostaNew(false,'${fabricante}','${modelo}')">NÃO</button>
-    `;
+    // Se NÃO tem internet: SEMPRE classifica como LEGACY e abre Retrofit
+    acoesBox.innerHTML = `
+      <div class="pergunta-box">
+        <p>Sem rede: Máquina classificada como <b>LEGACY</b>.<br>Deseja iniciar o <b>Protocolo Retrofit</b>?</p>
+        <div class="botoes-fluxo">
+          <button class="btn-sim" onclick="fluxoRetrofit(true)">SIM</button>
+          <button class="btn-nao" onclick="fluxoRetrofit(false)">NÃO</button>
+        </div>
+      </div>`;
   }
 }
 
-// ================= RESPOSTAS =================
-async function respostaLegacy(sim, fabricante, modelo) {
-
-  if (!sim) {
-    acoes.innerHTML = "<p>Operação cancelada.</p>";
-    return;
+async function fluxoRetrofit(aceitou) {
+  const acoesBox = document.getElementById("acoes");
+  if (aceitou) {
+    await salvarMaquina("LEGACY", "PROTOCOLO RETROFIT");
+    gerarPDFRetrofit();
+    acoesBox.innerHTML = "<div class='sucesso-box'>✅ Protocolo iniciado e PDF Gerado.</div>";
+  } else {
+    await salvarMaquina("LEGACY", "LEGACY (Manual)");
+    acoesBox.innerHTML = "<div class='sucesso-box'>✅ Salva como LEGACY (Manual).</div>";
   }
-
-  await db.collection("maquinas").add({
-    tipo: "LEGACY",
-    status: "EM RETROFIT",
-    fabricante,
-    modelo,
-    data: new Date()
-  });
-
-  gerarPDFCompleto("LEGACY", fabricante, modelo);
-
-  acoes.innerHTML = "<p>Retrofit iniciado com sucesso.</p>";
-
-  carregarMaquinas();
 }
 
-async function respostaNew(sim, fabricante, modelo) {
-
-  if (!sim) {
-
-    acoes.innerHTML = `
-      <p>Máquina sem conectividade. Deseja retrofit?</p>
-      <button onclick="respostaLegacy(true,'${fabricante}','${modelo}')">SIM</button>
-    `;
-
-    return;
-  }
-
-  await db.collection("maquinas").add({
-    tipo: "NEW",
-    status: "ATIVA",
-    fabricante,
-    modelo,
-    data: new Date()
-  });
-
-  gerarPDFCompleto("NEW", fabricante, modelo);
-
-  acoes.innerHTML = "<p>Máquina adicionada ao inventário.</p>";
-
-  carregarMaquinas();
-}
-
-// ================= PDF =================
-function gerarPDFCompleto(tipo, fabricante, modelo) {
-
+// ================= GERAÇÃO DE PDF TÉCNICO =================
+function gerarPDFRetrofit() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
 
-  let y = 15;
+  // Configurações de Estilo
+  const azulEscuro = "#1e3a8a";
+  const cinzaClaro = "#f3f4f6";
 
-  function linha(texto, espaco = 10) {
-    doc.text(texto, 10, y);
-    y += espaco;
-  }
+  // Cabeçalho
+  doc.setFillColor(azulEscuro);
+  doc.rect(0, 0, 210, 30, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(22);
+  doc.text("PROTOCOLO TÉCNICO DE RETROFIT", 15, 20);
 
-  function bloco(texto) {
-    const linhas = doc.splitTextToSize(texto, 180);
-    doc.text(linhas, 10, y);
-    y += linhas.length * 7;
-  }
-
-  // ================= CABEÇALHO =================
-  doc.setFontSize(18);
-  linha("RELATÓRIO TÉCNICO NAVIS INDUSTRIAL");
-
+  // 1. Componentes Essenciais
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(16);
+  doc.setFont(undefined, 'bold');
+  doc.text("1. Componentes Essenciais", 15, 45);
+  
   doc.setFontSize(11);
-  linha("Data: " + new Date().toLocaleString());
-  linha("Classificação: " + tipo);
-  linha("Fabricante: " + fabricante);
-  linha("Modelo: " + modelo);
+  doc.setFont(undefined, 'normal');
+  let texto1 = "Para conectar uma máquina legada, você precisará de três camadas de hardware:\n\n" +
+               "• Camada de Sensoriamento: Instalação de sensores externos (TC tipo split-core, vibração e sensores fotoelétricos).\n" +
+               "• Camada de Processamento: Gateway IoT (Siemens IOT2050, ESP32 ou Raspberry Pi) e conversores de protocolo.\n" +
+               "• Camada de Conectividade: Roteador Industrial 4G/5G ou Wi-Fi.";
+  doc.text(texto1, 15, 52, { maxWidth: 180 });
 
-  y += 5;
-
-  // ================= ANÁLISE =================
-  doc.setFontSize(13);
-  linha("1. ANÁLISE DO EQUIPAMENTO");
-
+  // 2. Passo a Passo
+  doc.setFontSize(16);
+  doc.setFont(undefined, 'bold');
+  doc.text("2. Passo a Passo do Retrofit", 15, 95);
+  
   doc.setFontSize(11);
+  doc.setFont(undefined, 'normal');
+  let texto2 = "Passo 1: Auditoria de Sinais (Status, Produção e Saúde).\n" +
+               "Passo 2: Instalação Física (Hardware e sensores na torre de luz).\n" +
+               "Passo 3: Digitalização e Protocolos (Configuração OPC UA ou MQTT).\n" +
+               "Passo 4: Centralização de Dados (Dashboards em Grafana ou Node-RED).";
+  doc.text(texto2, 15, 102, { maxWidth: 180 });
 
-  if (tipo === "NEW") {
-    bloco("Equipamento identificado com capacidade de comunicação industrial nativa, apto para integração direta em rede IoT/SCADA sem necessidade de retrofit.");
-  } else {
-    bloco("Equipamento classificado como legado, sem capacidade nativa de comunicação em rede, exigindo retrofit para integração com sistemas industriais modernos.");
-  }
+  // 3. Tabela de Arquitetura
+  doc.setFontSize(16);
+  doc.setFont(undefined, 'bold');
+  doc.text("3. Exemplo Prático de Arquitetura", 15, 135);
 
-  y += 5;
+  // Desenho da Tabela
+  doc.setFillColor(240, 240, 240);
+  doc.rect(15, 142, 180, 45, 'F');
+  doc.setFontSize(10);
+  doc.text("Componente", 20, 148);
+  doc.text("Função", 80, 148);
+  doc.line(15, 150, 195, 150);
+  
+  const linhas = [
+    ["Sensor SCT-013", "Monitora se o motor está sob esforço ou vazio."],
+    ["Contador de Pulsos", "Conectado à saída de ejeção de peças."],
+    ["Gateway ESP32", "Coleta dados analógicos e envia via MQTT."],
+    ["Broker Mosquitto", "Recebe e organiza as mensagens de dados."]
+  ];
 
-  // ================= RETROFIT =================
-  if (tipo === "LEGACY") {
+  let y = 158;
+  linhas.forEach(linha => {
+    doc.text(linha[0], 20, y);
+    doc.text(linha[1], 80, y);
+    y += 8;
+  });
 
-    doc.setFontSize(13);
-    linha("2. PLANO TÉCNICO DE RETROFIT");
+  // Rodapé
+  doc.setFontSize(9);
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Gerado por NAVIS INDUSTRIAL em ${new Date().toLocaleString()}`, 15, 285);
 
-    doc.setFontSize(11);
-
-    // SENSOR TEMPERATURA
-    linha("2.1 Sensor de Temperatura");
-    bloco("Tipos: Termopar (K, J) ou RTD (PT100/PT1000).");
-    bloco("Instalação: definir ponto de medição (mancais, motores ou fluidos).");
-    bloco("Fixação: solda, rosca ou poço termométrico.");
-    bloco("Ligação: PT100 (2, 3 ou 4 fios), Termopar com cabo compensado.");
-    bloco("Saída: transmissor 4–20 mA ou Modbus.");
-    bloco("Integração: entrada analógica do CLP.");
-
-    y += 3;
-
-    // SENSOR VIBRAÇÃO
-    linha("2.2 Sensor de Vibração");
-    bloco("Tipos: acelerômetro, velocidade ou deslocamento.");
-    bloco("Instalação: mancais, carcaça do motor ou estrutura.");
-    bloco("Fixação: parafuso (ideal), base magnética ou adesivo.");
-    bloco("Orientação: eixos horizontal, vertical e axial.");
-    bloco("Saída: 4–20 mA ou IEPE.");
-    bloco("Aquisição: CLP ou módulo dedicado.");
-
-    y += 3;
-
-    // CLP
-    linha("2.3 Controlador Lógico Programável (CLP)");
-    bloco("Função: centralizar aquisição de dados e lógica de controle.");
-    bloco("Módulos: entradas analógicas, digitais e comunicação.");
-    bloco("Ligação: sensores → entradas analógicas.");
-    bloco("Programação: IEC 61131-3 (Ladder ou Structured Text).");
-    bloco("Lógica: alarmes e parada automática baseada em limites.");
-
-    y += 3;
-
-    // IOT
-    linha("2.4 Integração IoT");
-    bloco("Arquitetura: sensores → CLP → gateway → nuvem.");
-    bloco("Protocolos industriais: Modbus RTU, TCP, OPC UA.");
-    bloco("Protocolos IoT: MQTT ou HTTP.");
-    bloco("Segurança: TLS/SSL e autenticação.");
-    bloco("Destino: plataformas cloud ou dashboard SCADA.");
-  }
-
-  // ================= CONCLUSÃO =================
-  y += 5;
-  doc.setFontSize(13);
-  linha("3. CONCLUSÃO");
-
-  doc.setFontSize(11);
-
-  if (tipo === "NEW") {
-    bloco("Equipamento pronto para integração imediata com sistemas industriais digitais.");
-  } else {
-    bloco("Recomenda-se execução do plano de retrofit para viabilizar monitoramento, análise preditiva e integração ao ecossistema IoT industrial.");
-  }
-
-  // ================= SALVAR =================
-  doc.save("NAVIS_RELATORIO_TECNICO.pdf");
+  // Download automático
+  doc.save("Protocolo_Retrofit_Navis.pdf");
 }
 
-// ================= SCADA =================
-function simular() {
-
-  let temp = 40 + Math.random()*40;
-  tempEl.innerText = temp.toFixed(1);
-
-  let status = temp > 70 ? "CRÍTICO" : "OK";
-  statusEl.innerText = status;
-
-  chart.data.labels.push("");
-  chart.data.datasets[0].data.push(temp);
-
-  if (chart.data.labels.length > 10) {
-    chart.data.labels.shift();
-    chart.data.datasets[0].data.shift();
-  }
-
-  chart.update();
+// ================= INVENTÁRIO E ESTADOS =================
+async function salvarMaquina(tipo, status) {
+  try {
+    await db.collection("maquinas").add({ tipo, status, timestamp: Date.now() });
+    carregarMaquinas();
+  } catch (e) { console.error(e); }
 }
 
-// ================= INVENTARIO =================
 async function carregarMaquinas() {
-
+  const lista = document.getElementById("lista");
+  if (!lista) return;
+  const snap = await db.collection("maquinas").orderBy("timestamp", "desc").limit(10).get();
   lista.innerHTML = "";
-
-  let snap = await db.collection("maquinas").get();
-
-  snap.forEach(doc=>{
-    let li = document.createElement("li");
-    let d = doc.data();
-
-    li.innerText = `${d.tipo} - ${d.status || ""}`;
+  snap.forEach(doc => {
+    const d = doc.data();
+    const id = doc.id;
+    const li = document.createElement("li");
+    li.className = `item-maquina ${d.tipo.toLowerCase()}`;
+    li.innerHTML = `
+      <div><strong>${d.tipo}</strong> - <span id="txt-${id}">${d.status}</span></div>
+      <div class="controles-item">
+        <select onchange="atualizarStatus('${id}', this.value)">
+          <option value="">Alterar...</option>
+          <option value="ATIVO">ATIVO</option>
+          <option value="RETROFIT">RETROFIT</option>
+          <option value="MANUTENÇÃO">MANUTENÇÃO</option>
+        </select>
+        <button onclick="excluirMaquina('${id}')">🗑️</button>
+      </div>`;
     lista.appendChild(li);
   });
+}
+
+async function atualizarStatus(id, novo) {
+  if (!novo) return;
+  await db.collection("maquinas").doc(id).update({ status: novo });
+  document.getElementById(`txt-${id}`).innerText = novo;
+}
+
+async function excluirMaquina(id) {
+  if(confirm("Excluir?")) {
+    await db.collection("maquinas").doc(id).delete();
+    carregarMaquinas();
+  }
+}
+
+// ================= SENSORES =================
+function inicializarGrafico() {
+  const ctx = document.getElementById('grafico').getContext('2d');
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: [], datasets: [{ label: "Temp °C", data: [], borderColor: '#2563eb' }] },
+    options: { responsive: true }
+  });
+}
+
+function simularSensores() {
+  const tempEl = document.getElementById("tempEl");
+  if (!tempEl || !chart) return;
+  const temp = (40 + Math.random() * 20).toFixed(1);
+  tempEl.innerText = temp;
+  chart.data.labels.push("");
+  chart.data.datasets[0].data.push(temp);
+  if (chart.data.labels.length > 10) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); }
+  chart.update('none');
 }

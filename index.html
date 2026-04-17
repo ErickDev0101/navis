@@ -1,77 +1,68 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NAVIS INDUSTRIAL</title>
+    <link rel="stylesheet" href="style.css">
 
-<title>NAVIS</title>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
-<link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
 
 <body onload="init()">
+    <header>NAVIS INDUSTRIAL</header>
 
-<header>NAVIS INDUSTRIAL</header>
+    <nav>
+        <button onclick="abrirAba('dashboard')">Dashboard</button>
+        <button onclick="abrirAba('analise')">Análise</button>
+        <button onclick="abrirAba('inventario')">Inventário</button>
+    </nav>
 
-<nav>
-  <button onclick="abrirAba('dashboard')">Dashboard</button>
-  <button onclick="abrirAba('analise')">Análise</button>
-  <button onclick="abrirAba('inventario')">Inventário</button>
-</nav>
+    <section id="dashboard" class="aba">
+        <div class="card">
+            <h2>Monitoramento em Tempo Real</h2>
+            <div class="status-container">
+                <p>Temperatura: <span id="tempEl">--</span>°C</p>
+                <p>Status: <span id="statusEl">--</span></p>
+            </div>
+            <canvas id="grafico"></canvas>
+        </div>
+    </section>
 
-<!-- DASHBOARD -->
-<section id="dashboard" class="aba">
-  <div class="card">
-    <h2>Monitoramento</h2>
-    <p>Temperatura: <span id="tempEl"></span></p>
-    <p>Status: <span id="statusEl"></span></p>
-    <canvas id="grafico"></canvas>
-  </div>
-</section>
+    <section id="analise" class="aba">
+        <div class="card">
+            <h2>Análise Inteligente (IA + OCR)</h2>
+            <div class="controles">
+                <button onclick="abrirCamera()">Abrir Câmera</button>
+                <input type="file" id="imageUpload" accept="image/*">
+            </div>
+            <video id="camera" autoplay playsinline style="display:none; width: 100%; max-width: 400px; margin: 10px auto;"></video>
+            <button id="btnCapturar" onclick="capturar()" style="display:none;">Capturar Foto</button>
+            <div class="preview-container">
+                <img id="preview" style="display:none; width: 100%; max-width: 400px; margin: 10px auto;">
+            </div>
+            <button id="btnAnalisar" onclick="analisar()" style="margin-top: 15px;">Iniciar Análise</button>
+            <div id="resultado-ia" class="resultado-box"></div>
+            <div id="acoes" class="acoes-box"></div>
+        </div>
+    </section>
 
-<!-- ANALISE -->
-<section id="analise" class="aba">
-  <div class="card">
+    <section id="inventario" class="aba">
+        <div class="card">
+            <h2>Inventário de Ativos</h2>
+            <ul id="lista" class="lista-maquinas"></ul>
+        </div>
+    </section>
 
-    <h2>Análise Inteligente</h2>
-
-    <button onclick="abrirCamera()">Abrir Câmera</button>
-    <input type="file" id="imageUpload">
-
-    <video id="camera" autoplay playsinline style="display:none;"></video>
-
-    <button id="btnCapturar" onclick="capturar()" style="display:none;">
-      Capturar
-    </button>
-
-    <img id="preview">
-
-    <button onclick="analisar()">Analisar</button>
-
-    <div id="ia"></div>
-    <div id="acoes"></div>
-
-  </div>
-</section>
-
-<!-- INVENTARIO -->
-<section id="inventario" class="aba">
-  <div class="card">
-    <h2>Inventário</h2>
-    <ul id="lista"></ul>
-  </div>
-</section>
-
-<canvas id="canvas" style="display:none;"></canvas>
-
-<script src="script.js"></script>
+    <canvas id="canvas" style="display:none;"></canvas>
+    <script src="script.js"></script>
 </body>
 </html>
