@@ -1,87 +1,77 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NAVIS | Intelligence</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-    <script
-        src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>NAVIS</title>
+
+<link rel="stylesheet" href="style.css">
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
 </head>
 
 <body onload="init()">
-    <header class="topbar">
-        <div class="brand-area"><span class="brand-name">NAVIS</span></div>
-        <div class="user-info">
-            <span>Eng. Thiago Erick</span>
-            <div class="user-avatar">T</div>
-        </div>
-    </header>
 
-    <nav class="sidebar">
-        <button onclick="showPage('scan')" id="btn-scan" class="nav-item active">SCANNER DE ATIVOS</button>
-        <button onclick="showPage('maquinas')" id="btn-maquinas" class="nav-item">INVENTÁRIO</button>
-        <button onclick="showPage('relatorios')" id="btn-relatorios" class="nav-item">RELATÓRIOS</button>
-    </nav>
+<header>NAVIS INDUSTRIAL</header>
 
-    <main class="main-content">
-        <section id="page-scan" class="page-grid">
-            <aside class="panel">
-                <header class="panel-header">Status de Operação</header>
-                <div class="data-row"><span>Conexão:</span> <strong>ATIVA</strong></div>
-                <div class="data-row"><span>IA Core:</span> <strong>CNN-TFJS</strong></div>
-            </aside>
+<nav>
+  <button onclick="abrirAba('dashboard')">Dashboard</button>
+  <button onclick="abrirAba('analise')">Análise</button>
+  <button onclick="abrirAba('inventario')">Inventário</button>
+</nav>
 
-            <article class="panel monitor-panel">
-                <div class="input-area">
-                    <input type="file" id="imageUpload" accept="image/*" hidden>
-                    <button onclick="document.getElementById('imageUpload').click()" class="btn-select">VISÃO</button>
-                    <button id="predictBtn" disabled class="btn-primary" style="margin-left:10px">SCANNER</button>
-                </div>
-                <div class="image-viewport">
-                    <img id="imagePreview" src="" alt="Feed" style="display: none; max-width: 100%; max-height: 100%;">
-                </div>
-            </article>
+<!-- DASHBOARD -->
+<section id="dashboard" class="aba">
+  <div class="card">
+    <h2>Monitoramento</h2>
+    <p>Temperatura: <span id="tempEl"></span></p>
+    <p>Status: <span id="statusEl"></span></p>
+    <canvas id="grafico"></canvas>
+  </div>
+</section>
 
-            <aside class="panel">
-                <header class="panel-header">Diagnóstico</header>
-                <div class="confidence-box"><span>Precisão:</span> <strong id="ai-confidence-percent">0%</strong></div>
-                <div id="ai-diagnostics" class="diagnostics-list">
-                    <p>Aguardando...</p>
-                </div>
-            </aside>
-        </section>
+<!-- ANALISE -->
+<section id="analise" class="aba">
+  <div class="card">
 
-        <section id="page-maquinas" style="display:none;">
-            <header class="panel-header">Ativos Registrados no Sistema</header>
-            <div class="panel">
-                <table style="width:100%; color: #c9d1d9; border-collapse: collapse;">
-                    <thead>
-                        <tr style="color:#ffc107; border-bottom: 1px solid #333">
-                            <th align="left" style="padding:10px">NOME DO ATIVO</th>
-                            <th align="left">CATEGORIA</th>
-                            <th align="left">DATA DE REGISTRO</th>
-                        </tr>
-                    </thead>
-                    <tbody id="lista-inventario"></tbody>
-                </table>
-                <button onclick="limparInventario()" class="btn-primary"
-                    style="margin-top:20px; background:#dc3545">LIMPAR TUDO</button>
-            </div>
-        </section>
+    <h2>Análise Inteligente</h2>
 
-        <section id="page-relatorios" style="display:none;">
-            <header class="panel-header">Central de Documentação</header>
-            <div class="panel" style="text-align: center; padding: 40px;">
-                <p>Os memoriais descritivos são gerados em formato PDF.</p>
-                <p style="color:#888">Verifique sua pasta de downloads após clicar em 'SALVAR E GERAR'.</p>
-            </div>
-        </section>
-    </main>
-    <script src="script.js"></script>
+    <button onclick="abrirCamera()">Abrir Câmera</button>
+    <input type="file" id="imageUpload">
+
+    <video id="camera" autoplay playsinline style="display:none;"></video>
+
+    <button id="btnCapturar" onclick="capturar()" style="display:none;">
+      Capturar
+    </button>
+
+    <img id="preview">
+
+    <button onclick="analisar()">Analisar</button>
+
+    <div id="ia"></div>
+    <div id="acoes"></div>
+
+  </div>
+</section>
+
+<!-- INVENTARIO -->
+<section id="inventario" class="aba">
+  <div class="card">
+    <h2>Inventário</h2>
+    <ul id="lista"></ul>
+  </div>
+</section>
+
+<canvas id="canvas" style="display:none;"></canvas>
+
+<script src="script.js"></script>
 </body>
-
 </html>
